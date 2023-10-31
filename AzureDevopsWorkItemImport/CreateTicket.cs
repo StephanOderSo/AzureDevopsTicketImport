@@ -1,4 +1,10 @@
-﻿using Newtonsoft.Json;
+﻿//using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.WebApi.Patch;
+using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,60 +18,52 @@ namespace AzureDevopsWorkItemImport
         private HttpClient client;
 
         private const string BASE = "https://dev.azure.com";
-        private const string PAT = "";
+        private string token = "";
         private const string ORG = "ISEFPWManager";
         private const string API = "api-version=7.1";
         private const string PROJECT = "Sandbox";
-        private const string WIT_TYPE = "$Task";
+        private const string WIT_TYPE = "Task";
 
-        public void Create()
+        public CreateTicket(string token)
         {
+            this.token = token;
             client = new HttpClient();
+
             client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("{0}:{1}", "", PAT))));
-
-            string uri = String.Join("?", String.Join("/", BASE, ORG, PROJECT, "_apis/wit/workitems", WIT_TYPE), API);
-
-
-            string json = "[{ \"op\": \"add\", \"path\": \"/fields/System.Title\", \"from\": null, \"value\": \"REST API Demo task\"}]";
-            HttpContent content = new StringContent(json, Encoding.UTF8, "application/json-patch+json");
-
-            string result = CreateWIT(client, uri, content).Result;
-
-
-
-            // Pretty print the JSON if result not empty or null.
-            if (!String.IsNullOrEmpty(result))
-            {
-                dynamic wit = JsonConvert.DeserializeObject<object>(result);
-                Console.WriteLine(JsonConvert.SerializeObject(wit, Formatting.Indented));
-            }
-
-            client.Dispose();
+            //client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("{0}:{1}", "", token))));
         }
 
-
-
-        public static async Task<string> CreateWIT(HttpClient client, string uri, HttpContent content)
+        public bool Create()
         {
+            
+            string _uri = String.Join("?", String.Join("/", BASE, ORG, PROJECT, "_apis/wit/workitems", WIT_TYPE), API);
+
+            Uri uri = new Uri($"https://dev.azure.com/{ORG}");
+            VssBasicCredential credentials = new VssBasicCredential("", token);
+            JsonPatchDocument patchDocument = new JsonPatchDocument();
+
+            patchDocument.Add(new JsonPatchOperation()
+            {
+                Operation = /*Microsoft.VisualStudio.Services.WebApi.Patch.*/Operation.Add,
+                Path = "/fields/System.Title",
+                Value = "Testtitle"
+            });
+
+            VssConnection connection = new VssConnection(uri, credentials);
+            WorkItemTrackingHttpClient workItemTrackingHttpClient = connection.GetClient<WorkItemTrackingHttpClient>();
+
             try
             {
-                // Send asynchronous POST request.
-                using (HttpResponseMessage response = await client.PostAsync(uri, content))
-                {
-                    response.EnsureSuccessStatusCode();
-                    return (await response.Content.ReadAsStringAsync());
-                }
+                Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItem result = workItemTrackingHttpClient.CreateWorkItemAsync(patchDocument, PROJECT, WIT_TYPE).Result;
+
+                return true;
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
-                return string.Empty;
+                Console.WriteLine(ex.Message);
+                return false;
             }
-        } 
-
-
-
+        }
     }
 }
