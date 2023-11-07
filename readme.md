@@ -1,0 +1,1 @@
+Just a quick and dirty solution to convert a CSV to Azure Devops Work Items and upload those to a Azure Devops Board :)
